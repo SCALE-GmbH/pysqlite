@@ -22,10 +22,13 @@
 # 3. This notice may not be removed or altered from any source distribution.
 
 import glob, os, re, sys
-import urllib
-import zipfile
+import shutil
+import urllib2
+import tarfile
+import tempfile
 import subprocess
 
+from distutils import log
 from distutils.core import setup, Extension, Command
 from distutils.command.build import build
 from distutils.command.build_ext import build_ext
@@ -105,7 +108,6 @@ class DocBuilder(Command):
         pass
 
     def run(self):
-        import os, shutil
         try:
             shutil.rmtree("build/doc")
         except OSError:
@@ -116,36 +118,6 @@ class DocBuilder(Command):
             print "Is sphinx installed? If not, try 'sudo easy_install sphinx'."
 
 AMALGAMATION_ROOT = "amalgamation"
-
-def get_amalgamation():
-    """Download the SQLite amalgamation if it isn't there, already."""
-    if os.path.exists(AMALGAMATION_ROOT):
-        return
-    os.mkdir(AMALGAMATION_ROOT)
-    print "Downloading amalgation."
-
-    # find out what's current amalgamation ZIP file
-    download_page = urllib.urlopen("http://sqlite.org/download.html").read()
-    pattern = re.compile(r'href="([^"]*sqlite-amalgamation.*?\.zip)"')
-    download_paths = pattern.findall(download_page)
-    pattern = re.compile(r"'(20\d\d/sqlite-amalgamation.*?\.zip)'")
-    download_paths.extend(pattern.findall(download_page))
-    download_file = download_paths[0]
-    amalgamation_url = "http://sqlite.org/" + download_file
-
-    # and download it
-    urllib.urlretrieve(amalgamation_url, "tmp.zip")
-
-    zf = zipfile.ZipFile("tmp.zip")
-    files = ["sqlite3.c", "sqlite3.h"]
-    directory = zf.namelist()[0]
-    for fn in files:
-        print "Extracting", fn
-        outf = open(AMALGAMATION_ROOT + os.sep + fn, "wb")
-        outf.write(zf.read(directory + fn))
-        outf.close()
-    zf.close()
-    os.unlink("tmp.zip")
 
 class AmalgamationBuilder(build):
     description = "Build a statically built pysqlite using the amalgamtion."
@@ -176,6 +148,74 @@ class MyBuildExt(build_ext):
         if self.amalgamation and k == "libraries":
             v = None
         self.__dict__[k] = v
+
+
+class UpdateAmalgamation(Command):
+    """
+    Recreates the sqlite3 amalgamation in the amalgamation directory. Needs
+    a unix OS to run configure and make.
+    """
+
+    description = 'recreate amalgamation from source'
+
+    user_options = [
+        ('sqlcipher-source=', None, 'URL or version of SQLCipher source download'),
+        ('keep-workdir', None, 'When set, the work directory and contents are kept'),
+    ]
+    boolean_options = ['keep-workdir']
+
+
+    def initialize_options(self):
+        self.sqlcipher_source = "https://github.com/SCALE-GmbH/sqlcipher/archive/v3.3.1+scale1.tar.gz"
+        self.keep_workdir = False
+
+    def finalize_options(self):
+        pass
+
+    def run(self):
+        workdir = tempfile.mkdtemp(prefix="amalg_", suffix=".tmp")
+        self.announce("Processing in {0}".format(workdir), level=log.INFO)
+        try:
+            self._run_in(workdir)
+        finally:
+            if self.keep_workdir:
+                self.announce("Not removing work dir {0}.".format(workdir), level=log.INFO)
+            else:
+                shutil.rmtree(workdir)
+
+    def _run_in(self, workdir):
+        self.announce("Downloading SQLCipher archive from {0}".format(self.sqlcipher_source), level=log.INFO)
+        source_stream = urllib2.urlopen(self.sqlcipher_source)
+        source_file = os.path.join(workdir, "source.tar.gz")
+        with open(source_file, "wb") as archive_stream:
+            shutil.copyfileobj(source_stream, archive_stream)
+
+        self.announce("Extracting archive", level=log.INFO)
+        with tarfile.open(source_file) as archive:
+            rootdir, = set(
+                    re.match(r".*?(?=[\/]|$)", path).group(0)
+                    for path in archive.getnames())
+            self.announce("Toplevel folder is {0}".format(rootdir))
+            archive.extractall(workdir)
+
+        source_dir = os.path.join(workdir, rootdir)
+        self._configure_source(source_dir)
+        self._make_amalgamation(source_dir)
+
+        if not os.path.isdir("amalgamation"):
+            os.mkdir("amalgamation")
+        for generated_file in ("sqlite3.c", "sqlite3.h", "shell.c", "sqlite3ext.h"):
+            shutil.copyfile(os.path.join(source_dir, generated_file),
+                            os.path.join("amalgamation", generated_file))
+
+    def _configure_source(self, source_dir):
+        self.announce("Running configure", level=log.INFO)
+        subprocess.check_call(["./configure"], cwd=source_dir)
+
+    def _make_amalgamation(self, source_dir):
+        self.announce("Running make", level=log.INFO)
+        subprocess.check_call(["make", "sqlite3.c"], cwd=source_dir)
+
 
 def get_setup_args():
 
@@ -242,10 +282,10 @@ def get_setup_args():
             "Programming Language :: Python",
             "Topic :: Database :: Database Engines/Servers",
             "Topic :: Software Development :: Libraries :: Python Modules"],
-            cmdclass = {"build_docs": DocBuilder}
+            cmdclass = {"build_docs": DocBuilder, "update_amalgamation": UpdateAmalgamation}
             )
 
-    setup_args["cmdclass"].update({"build_docs": DocBuilder, "build_ext": MyBuildExt, "build_static": AmalgamationBuilder, "cross_bdist_wininst": cross_bdist_wininst.bdist_wininst})
+    setup_args["cmdclass"].update({"build_docs": DocBuilder, "build_ext": MyBuildExt, "cross_bdist_wininst": cross_bdist_wininst.bdist_wininst})
     return setup_args
 
 def main():

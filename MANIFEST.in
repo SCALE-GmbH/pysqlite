@@ -1,6 +1,7 @@
 include MANIFEST.in
 include LICENSE
 include cross_bdist_wininst.py
+graft amalgamation
 include doc/*.txt
 include doc/includes/sqlite3/*.py
 include doc/sphinx/*
