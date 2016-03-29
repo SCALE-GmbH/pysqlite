@@ -150,6 +150,37 @@ class MyBuildExt(build_ext):
         self.__dict__[k] = v
 
 
+def configuration_defines():
+    """
+    Return the macros to define when building SQLite. This is used for the build
+    itself and when generating the amalgamation.
+
+    :rtype: list[tuple[str, Union[str, None]]]
+    """
+    return [
+            # Taken from Debian/Ubuntu package 3.8.2-1
+            ("SQLITE_SECURE_DELETE", None),
+            ("SQLITE_ENABLE_COLUMN_METADATA", None),
+            ("SQLITE_ENABLE_FTS3", None),
+            ("SQLITE_ENABLE_RTREE", None),
+            ("SQLITE_SOUNDEX", None),
+            ("SQLITE_ENABLE_UNLOCK_NOTIFY", None),
+            ("SQLITE_OMIT_LOOKASIDE", None),
+            ("SQLITE_ENABLE_UPDATE_DELETE_LIMIT", None),
+            # ("SQLITE_MAX_SCHEMA_RETRY", 25),  # default is 50, not sure why 25 could be better
+            ("SQLITE_MAX_VARIABLE_NUMBER", "250000"),
+
+            # Taken from https://www.sqlite.org/howtocompile.html, full-featured build
+            ("SQLITE_ENABLE_FTS4", None),
+            ("SQLITE_ENABLE_FTS5", None),
+            ("SQLITE_ENABLE_JSON1", None),
+            ("SQLITE_ENABLE_EXPLAIN_COMMENTS", None),
+
+            # Enable SQLCipher
+            ("SQLITE_HAS_CODEC", None),
+    ]
+
+
 class UpdateAmalgamation(Command):
     """
     Recreates the sqlite3 amalgamation in the amalgamation directory. Needs
@@ -210,7 +241,11 @@ class UpdateAmalgamation(Command):
 
     def _configure_source(self, source_dir):
         self.announce("Running configure", level=log.INFO)
-        subprocess.check_call(["./configure"], cwd=source_dir)
+        def convert_define(pair):
+            name, value = pair
+            return "-D" + name if value is None else "-D{0}={1}".format(name, value)
+        assign_cflags = "CFLAGS={0}".format(" ".join(map(convert_define, configuration_defines())))
+        subprocess.check_call(["./configure", assign_cflags], cwd=source_dir)
 
     def _make_amalgamation(self, source_dir):
         self.announce("Running make", level=log.INFO)
