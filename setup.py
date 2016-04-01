@@ -84,6 +84,10 @@ else:
 # On Unix platforms we can determine the install location of sqlite3 from pkg-config
 
 if sys.platform != "win32":
+    pkg_features = check_output(["pkg-config", "--variable=features", "sqlite3"])
+    if not any(feature.strip() == "SQLCipher" for feature in pkg_features.split(",")):
+        raise RuntimeError("pkg-config found sqlite3 but it is missing SQLCipher support")
+
     pkg_config_output = check_output("pkg-config --cflags --libs sqlite3", shell=True)
     for token in pkg_config_output.split():
         if token.startswith("-I"):
