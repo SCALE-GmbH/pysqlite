@@ -119,13 +119,6 @@ class DocBuilder(Command):
 
 AMALGAMATION_ROOT = "amalgamation"
 
-class AmalgamationBuilder(build):
-    description = "Build a statically built pysqlite using the amalgamtion."
-
-    def __init__(self, *args, **kwargs):
-        MyBuildExt.amalgamation = True
-        build.__init__(self, *args, **kwargs)
-
 class MyBuildExt(build_ext):
     if sys.platform == "win32":
         amalgamation = True
@@ -233,11 +226,11 @@ class UpdateAmalgamation(Command):
         self._configure_source(source_dir)
         self._make_amalgamation(source_dir)
 
-        if not os.path.isdir("amalgamation"):
-            os.mkdir("amalgamation")
+        if not os.path.isdir(AMALGAMATION_ROOT):
+            os.mkdir(AMALGAMATION_ROOT)
         for generated_file in ("sqlite3.c", "sqlite3.h", "shell.c", "sqlite3ext.h"):
             shutil.copyfile(os.path.join(source_dir, generated_file),
-                            os.path.join("amalgamation", generated_file))
+                            os.path.join(AMALGAMATION_ROOT, generated_file))
 
     def _configure_source(self, source_dir):
         self.announce("Running configure", level=log.INFO)
