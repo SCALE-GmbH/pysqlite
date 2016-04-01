@@ -84,17 +84,14 @@ else:
 # On Unix platforms we can determine the install location of sqlite3 from pkg-config
 
 if sys.platform != "win32":
-    try:
-        pkg_config_output = check_output("pkg-config --cflags --libs sqlite3", shell=True)
-        for token in pkg_config_output.split():
-            if token.startswith("-I"):
-                include_dirs.append(token[2:])
-            elif token.startswith("-l"):
-                libraries.append(token[2:])
-            elif token.startswith("-L"):
-                library_dirs.append(token[2:])
-    except subprocess.CalledProcessError, e:
-        print "Falling back to default paths as calling pkg-config failed:\n  {0}".format(e)
+    pkg_config_output = check_output("pkg-config --cflags --libs sqlite3", shell=True)
+    for token in pkg_config_output.split():
+        if token.startswith("-I"):
+            include_dirs.append(token[2:])
+        elif token.startswith("-l"):
+            libraries.append(token[2:])
+        elif token.startswith("-L"):
+            library_dirs.append(token[2:])
 
 
 class DocBuilder(Command):
