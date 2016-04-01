@@ -191,7 +191,7 @@ class UpdateAmalgamation(Command):
 
 
     def initialize_options(self):
-        self.sqlcipher_source = "https://github.com/SCALE-GmbH/sqlcipher/archive/v3.3.1+scale1.tar.gz"
+        self.sqlcipher_source = "https://github.com/SCALE-GmbH/sqlcipher/archive/v3.3.1+scale2.tar.gz"
         self.keep_workdir = False
 
     def finalize_options(self):
