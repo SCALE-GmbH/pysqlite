@@ -13,10 +13,8 @@ environment:
 install:
   - '%PYTHON%\\python.exe -m pip install wheel'
 
-build: off
-after_build:
+build_script:
   - '%PYTHON%\\python.exe pip install .'
-
 
 test_script:
   - '%PYTHON%\\python.exe -c "from pysqlite2.test import test; test()"'
