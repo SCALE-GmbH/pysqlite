@@ -14,7 +14,7 @@ install:
   - '%PYTHON%\\python.exe -m pip install wheel'
 
 build_script:
-  - '%PYTHON%\\python.exe pip install .'
+  - '%PYTHON%\\python.exe -m pip install .'
 
 test_script:
   - '%PYTHON%\\python.exe -c "from pysqlite2.test import test; test()"'
