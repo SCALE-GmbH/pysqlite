@@ -331,7 +331,7 @@ static PyTypeObject pysqlite_VFSFileType = {
   Add constant integer \a value as \a name to Python object \a target.
   \return -1 on failure (Python error set), 0 on success
  */
-static inline int
+static int
 set_item_int(PyObject *target, const char *name, long value)
 {
     int status = -1;
