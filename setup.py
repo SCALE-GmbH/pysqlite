@@ -128,12 +128,10 @@ class MyBuildExt(build_ext):
 
     def build_extension(self, ext):
         if self.amalgamation:
-            ext.define_macros.append(("SQLITE_ENABLE_FTS3", "1"))   # build with fulltext search enabled
-            ext.define_macros.append(("SQLITE_ENABLE_RTREE", "1"))   # build with fulltext search enabled
+            ext.define_macros.extend(configuration_defines())
             ext.sources.append(os.path.join(AMALGAMATION_ROOT, "sqlite3.c"))
             ext.include_dirs.append(AMALGAMATION_ROOT)
         ext.define_macros.append(("THREADSAFE", "1"))
-        ext.define_macros.append(("SQLITE_ENABLE_COLUMN_METADATA", "1"))
         build_ext.build_extension(self, ext)
 
     def __setattr__(self, k, v):
