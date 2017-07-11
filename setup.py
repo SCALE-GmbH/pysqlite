@@ -29,7 +29,14 @@ import tempfile
 import subprocess
 
 from distutils import log
-from distutils.core import setup, Extension, Command
+
+# Building on Windows only works when setup is imported from setuptools.
+# Otherwise the compiler is not correctly detected.
+try:
+    from setuptools import setup, Extension, Command
+except ImportError:
+    from distutils.core import setup, Extension, Command
+
 from distutils.command.build import build
 from distutils.command.build_ext import build_ext
 
@@ -129,8 +136,21 @@ class MyBuildExt(build_ext):
     def build_extension(self, ext):
         if self.amalgamation:
             ext.define_macros.extend(configuration_defines())
+            # Select OpenSSL (usually configure should autoselect this, but on
+            # Windows we don't run configure)
+            ext.define_macros.append(("SQLCIPHER_CRYPTO_OPENSSL", None))
             ext.sources.append(os.path.join(AMALGAMATION_ROOT, "sqlite3.c"))
             ext.include_dirs.append(AMALGAMATION_ROOT)
+
+            # For whatever reason adding the directory to the LIB environment variable
+            # did not help with building. With this hack it actually finds the libs.
+            ext.library_dirs.append("C:\\openssl-win64-2010\\lib")
+
+            # Only libcrypto is actually used I think. Maybe we could omit libssl.
+            # Note that indirect dependencies have to be included as well or the
+            # linker will fail.
+            ext.libraries.extend(["libcrypto", "libssl", "advapi32", "crypt32", "gdi32", "user32", "ws2_32"])
+
         ext.define_macros.append(("THREADSAFE", "1"))
         build_ext.build_extension(self, ext)
 
